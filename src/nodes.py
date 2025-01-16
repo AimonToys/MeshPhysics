@@ -227,7 +227,7 @@ class AnimateMesh:
             frames.append(frame_tensor)
             pbar.update(1)
 
-        return torch.stack(frames)  # Returns [B,H,W,C] with values 0-255 RGB
+        return (torch.stack(frames),)  # Returns [B,H,W,C] with values 0-255 RGB
 
 
 # A dictionary that contains all nodes you want to export with their names
