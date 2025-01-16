@@ -45,7 +45,7 @@ class LoadTrajectories:
         }
 
     RETURN_TYPES = ("COORDINATES", "INT", "INT")
-    RETURN_NAMES = ("trajectories", "features", "length")
+    RETURN_NAMES = ("trajectories", "n_anchors", "n_frames")
     DESCRIPTION = "Load a list of trajectories from a JSON string."
     FUNCTION = "load"
 
@@ -67,7 +67,7 @@ class SplitKJTrajectoriesLoop:
         }
 
     RETURN_TYPES = ("STRING", "INT", "STRING", "INT")
-    RETURN_NAMES = ("first_half", "first_length", "second_half", "second_length")
+    RETURN_NAMES = ("coordinates_1", "n_frames_1", "coordinates_2", "n_frames_2")
     DESCRIPTION = "Split a list of looped trajectories into two halves with an overlap."
     FUNCTION = "split"
 
