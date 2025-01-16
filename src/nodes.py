@@ -168,6 +168,7 @@ class AnimateMesh:
         frames = []
 
         if image is not None:
+            image = (image * 255.0).cpu().numpy().astype(np.uint8)[..., ::-1]
             if image.shape[0] == 1:
                 image_frames = [image[0]] * n_frames
             elif image.shape[0] == n_frames:
