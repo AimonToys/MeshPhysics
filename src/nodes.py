@@ -89,7 +89,7 @@ class SplitKJTrajectoriesLoop:
         return (first_half, len(first_half[0]), second_half, len(second_half[0]))
 
 
-class CircleMesh:
+class ARAPCircleMesh:
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -175,7 +175,7 @@ class AnimateMesh:
         # Create a single figure and axis for reuse
         if triangles:
             fig, ax = plt.subplots(figsize=(width/100, height/100))
-        
+
         # Generate each frame
         for frame in range(n_frames):
             # Update mesh positions with current frame's anchors
@@ -183,27 +183,27 @@ class AnimateMesh:
             mesh.step(anchors)
 
             frame_img = np.zeros((height, width, 3), dtype=np.float32)
-            
+
             # For each triangle in the mesh wrap the image
             if image is not None:
                 for simplex in mesh.faces:
                     src_tri = mesh.initial[simplex].astype(np.float32)
                     dst_tri = mesh.points[simplex].astype(np.float32)
-                    
+
                     # Calculate affine transform
                     warp_mat = cv2.getAffineTransform(src_tri[:3], dst_tri[:3])
-                    
+
                     # Create mask for this triangle
                     curr_mask = np.zeros((height, width), dtype=np.uint8)
                     cv2.fillPoly(curr_mask, [dst_tri.astype(np.int32)], 1)
-                    
+
                     # Warp the current frame
                     img_piece = (image_frames[frame] * 255).astype(np.uint8)
                     if img_piece.shape[-1] == 4:
                         img_piece = img_piece[..., :3]
                     warped_piece = cv2.warpAffine(img_piece, warp_mat, (width, height), 
                                                 flags=cv2.INTER_LINEAR)
-                    
+
                     # Blend into frame where mask is valid
                     valid_mask = curr_mask > 0
                     frame_img[valid_mask] = warped_piece[valid_mask] / 255.0
@@ -218,16 +218,16 @@ class AnimateMesh:
                     vertices = mesh.points[simplex]
                     ax.fill(vertices[:, 0], vertices[:, 1], 
                            alpha=0.1, color='blue', edgecolor='blue')
-                
+
                 # Draw points
                 feature_mask = np.zeros(len(mesh.points), dtype=bool)
                 feature_mask[:len(trajectories)] = True  # First n points are features
-                
+
                 ax.scatter(mesh.points[~feature_mask, 0], mesh.points[~feature_mask, 1], 
                           c='b', s=20, alpha=0.5)
                 ax.scatter(mesh.points[feature_mask, 0], mesh.points[feature_mask, 1], 
                           c='r', s=50)
-                
+
                 ax.set_xlim(0, width)
                 ax.set_ylim(height, 0)
 
@@ -252,7 +252,7 @@ class AnimateMesh:
 NODE_CLASS_MAPPINGS = {
     "LoadTrajectories": LoadTrajectories,
     "SplitKJTrajectoriesLoop": SplitKJTrajectoriesLoop,
-    "CircleMesh": CircleMesh,
+    "ARAPCircleMesh": ARAPCircleMesh,
     "AnimateMesh": AnimateMesh,
 }
 
@@ -260,7 +260,7 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadTrajectories": "Load Trajectories",
     "SplitKJTrajectoriesLoop": "Split KJ Trajectories Loop",
-    "CircleMesh": "Circle Mesh",
+    "ARAPCircleMesh": "ARAP Circle Mesh",
     "AnimateMesh": "Animate Mesh",
 }
 
