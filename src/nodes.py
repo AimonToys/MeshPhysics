@@ -1,5 +1,4 @@
 import json
-from inspect import cleandoc
 
 
 class SplitKJCoordinatesLoop:
@@ -14,7 +13,7 @@ class SplitKJCoordinatesLoop:
 
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("first_half", "second_half")
-    DESCRIPTION = cleandoc(__doc__)
+    DESCRIPTION = "Split a list of looped coordinates into two halves with an overlap."
     FUNCTION = "split"
 
     CATEGORY = "MeshPhysics/SplitKJCoordinatesLoop"
