@@ -3,7 +3,7 @@
 """Tests for `MeshPhysics` package."""
 
 import pytest
-from src.MeshPhysics.nodes import Example
+from nodes import Example
 
 @pytest.fixture
 def example_node():
