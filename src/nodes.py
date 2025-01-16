@@ -196,8 +196,7 @@ class AnimateMesh:
                     cv2.fillPoly(curr_mask, [dst_tri.astype(np.int32)], 1)
 
                     # Convert RGB tensor to BGR numpy for cv2
-                    img_piece = image_frames[frame].cpu().numpy().astype(np.uint8)[..., ::-1]
-                    warped_piece = cv2.warpAffine(img_piece, warp_mat, (width, height), 
+                    warped_piece = cv2.warpAffine(image_frames[frame], warp_mat, (width, height), 
                                                 flags=cv2.INTER_LINEAR)
 
                     # Apply mask
