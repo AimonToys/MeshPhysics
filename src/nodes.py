@@ -10,6 +10,7 @@ from scipy.spatial import Delaunay
 class ARAPMeshSystem:
     def __init__(self, points, n_anchors):
         self.points = np.array(points, dtype=np.float64)
+        self.initial = self.points.copy()
         # Create triangulation for faces
         self.faces = Delaunay(points).simplices.astype(np.int32)
         # Get initial boundary points (will be updated in step)
@@ -17,7 +18,7 @@ class ARAPMeshSystem:
 
         # Initialize ARAP solver
         self.arap_data = igl.ARAP(
-            v=self.points.copy(),  # Initial vertex positions
+            v=self.initial,  # Initial vertex positions
             f=self.faces,          # Face indices
             dim=2,                 # 2D deformation
             b=self.b,             # Boundary vertices
