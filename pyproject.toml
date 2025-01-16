@@ -14,7 +14,7 @@ license = {text = "MIT license"}
 classifiers = []
 dependencies = [
     "opencv-python",
-    "igl",
+    "libigl",
     "matplotlib",
     "numpy",
     "scipy",
