@@ -98,9 +98,9 @@ class ARAPCircleMesh:
                 "center_y": ("INT", {"default": 0, "min": -4096, "max": 4096, "step": 1}),
                 "radii": ("STRING",),
                 "points_per_ring": ("STRING",),
-                "optional": {
-                    "trajectories": ("COORDINATES",),
-                },
+            },
+            "optional": {
+                "trajectories": ("COORDINATES",),
             },
         }
 
@@ -137,10 +137,10 @@ class AnimateMesh:
                 "trajectories": ("COORDINATES",),
                 "width": ("INT", {"default": 512, "min": 32, "max": 4096, "step": 1}),
                 "height": ("INT", {"default": 512, "min": 32, "max": 4096, "step": 1}),
-                "optional": {
-                    "image": ("IMAGE", {"default": None}),
-                    "triangles": ("BOOLEAN", {"default": False}),
-                },
+            },
+            "optional": {
+                "image": ("IMAGE", {"default": None}),
+                "triangles": ("BOOLEAN", {"default": False}),
             },
         }
 
