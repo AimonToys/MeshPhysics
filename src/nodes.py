@@ -168,7 +168,12 @@ class AnimateMesh:
                 else:
                     raise ValueError(f"Image sequence length ({image.shape[0]}) must match trajectory length ({n_frames})")
             # Ensure images are float32 in [0,1]
-            image_frames = [img.astype(np.float32) if img.dtype != np.float32 else img for img in image_frames]
+            def to_numpy_float32(img):
+                if hasattr(img, 'cpu'):  # Handle torch tensors
+                    img = img.cpu().numpy()
+                return img if img.dtype == np.float32 else img.astype(np.float32)
+
+            image_frames = [to_numpy_float32(img) for img in image_frames]
         else:
             triangles = True
 
