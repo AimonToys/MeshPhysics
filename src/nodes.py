@@ -149,7 +149,7 @@ class AnimateMesh:
         }
 
     RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("image",)
+    RETURN_NAMES = ("images",)
     DESCRIPTION = "Simulate the movement of mesh points according to a list of trajectories."
     FUNCTION = "simulate"
 
@@ -163,7 +163,7 @@ class AnimateMesh:
         height: int, 
         image: Optional[torch.Tensor] = None,  # Expected [B,H,W,C] with values 0-255 RGB
         triangles: bool = True
-    ) -> torch.Tensor:  # Returns [B,H,W,C] with values 0-255 RGB
+    ) -> torch.Tensor:  # Returns [B,H,W,C] with values 0-1 RGB
         n_frames = len(trajectories[0])
         frames = []
 
@@ -223,7 +223,7 @@ class AnimateMesh:
             # Convert BGR to RGB before returning
             frame_img = frame_img[..., ::-1].copy()
             # Convert to torch tensor [H,W,C]
-            frame_tensor = torch.from_numpy(frame_img)
+            frame_tensor = torch.from_numpy(frame_img).float() / 255.0
             frames.append(frame_tensor)
             pbar.update(1)
 
