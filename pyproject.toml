@@ -15,9 +15,9 @@ classifiers = []
 dependencies = [
     "opencv-python",
     "libigl",
-    "matplotlib",
     "numpy",
     "scipy",
+    "torch",
 ]
 
 [project.optional-dependencies]

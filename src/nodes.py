@@ -1,10 +1,13 @@
 import json
+from typing import List, Optional
 
 import cv2
 import igl
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from scipy.spatial import Delaunay
+from comfy.utils import ProgressBar
 
 
 class ARAPMeshSystem:
@@ -152,105 +155,79 @@ class AnimateMesh:
 
     CATEGORY = "MeshPhysics/simulation"
 
-    def simulate(self, mesh, trajectories, width, height, image=None, triangles=True):
-        # Get number of frames from trajectories
+    def simulate(
+        self, 
+        mesh: ARAPMeshSystem,
+        trajectories: List[List[float]], 
+        width: int, 
+        height: int, 
+        image: Optional[torch.Tensor] = None,  # Expected [B,H,W,C] with values 0-255 RGB
+        triangles: bool = True
+    ) -> torch.Tensor:  # Returns [B,H,W,C] with values 0-255 RGB
         n_frames = len(trajectories[0])
         frames = []
 
-        # Convert image input to list of frames if needed
         if image is not None:
-            if len(image.shape) == 3:  # Single image (H,W,C)
-                image_frames = [image] * n_frames
-            elif len(image.shape) == 4:  # Sequence of images
-                if image.shape[0] == 1:  # Batch 1 (1,H,W,C)
-                    image_frames = [image[0]] * n_frames
-                elif image.shape[0] == n_frames:
-                    image_frames = image
-                else:
-                    raise ValueError(f"Image sequence length ({image.shape[0]}) must match trajectory length ({n_frames})")
-            # Ensure images are float32 in [0,1]
-            def to_numpy_float32(img):
-                if hasattr(img, 'cpu'):  # Handle torch tensors
-                    img = img.cpu().numpy()
-                return img if img.dtype == np.float32 else img.astype(np.float32)
-
-            image_frames = [to_numpy_float32(img) for img in image_frames]
+            if image.shape[0] == 1:
+                image_frames = [image[0]] * n_frames
+            elif image.shape[0] == n_frames:
+                image_frames = image
+            else:
+                raise ValueError(f"Image sequence length ({image.shape[0]}) must match trajectory length ({n_frames})")
         else:
             triangles = True
 
-        # Create a single figure and axis for reuse
-        if triangles:
-            fig, ax = plt.subplots(figsize=(width/100, height/100))
-
-        # Generate each frame
+        pbar = ProgressBar(n_frames)
         for frame in range(n_frames):
-            # Update mesh positions with current frame's anchors
             anchors = [tr[frame] for tr in trajectories]
             mesh.step(anchors)
 
-            frame_img = np.zeros((height, width, 3), dtype=np.float32)
+            # Start with black frame
+            frame_img = np.zeros((height, width, 3), dtype=np.uint8)
 
-            # For each triangle in the mesh wrap the image
             if image is not None:
                 for simplex in mesh.faces:
                     src_tri = mesh.initial[simplex].astype(np.float32)
                     dst_tri = mesh.points[simplex].astype(np.float32)
 
-                    # Calculate affine transform
                     warp_mat = cv2.getAffineTransform(src_tri[:3], dst_tri[:3])
-
-                    # Create mask for this triangle
                     curr_mask = np.zeros((height, width), dtype=np.uint8)
                     cv2.fillPoly(curr_mask, [dst_tri.astype(np.int32)], 1)
 
-                    # Warp the current frame
-                    img_piece = (image_frames[frame] * 255).astype(np.uint8)
-                    if img_piece.shape[-1] == 4:
-                        img_piece = img_piece[..., :3]
+                    # Convert RGB tensor to BGR numpy for cv2
+                    img_piece = image_frames[frame].cpu().numpy().astype(np.uint8)[..., ::-1]
                     warped_piece = cv2.warpAffine(img_piece, warp_mat, (width, height), 
                                                 flags=cv2.INTER_LINEAR)
 
-                    # Blend into frame where mask is valid
+                    # Apply mask
                     valid_mask = curr_mask > 0
-                    frame_img[valid_mask] = warped_piece[valid_mask] / 255.0
+                    frame_img[valid_mask] = warped_piece[valid_mask]
 
             if triangles:
-                # Clear the axis instead of creating new figure
-                ax.clear()
-                # Display current frame
-                ax.imshow(frame_img)
-                # Draw triangles
+                # Draw triangles - using BGR colors for cv2
                 for simplex in mesh.faces:
-                    vertices = mesh.points[simplex]
-                    ax.fill(vertices[:, 0], vertices[:, 1], 
-                           alpha=0.1, color='blue', edgecolor='blue')
+                    vertices = mesh.points[simplex].astype(np.int32)
+                    cv2.polylines(frame_img, [vertices], True, (0, 255, 0), 1, cv2.LINE_AA)
 
-                # Draw points
                 feature_mask = np.zeros(len(mesh.points), dtype=bool)
-                feature_mask[:len(trajectories)] = True  # First n points are features
+                feature_mask[:len(trajectories)] = True
 
-                ax.scatter(mesh.points[~feature_mask, 0], mesh.points[~feature_mask, 1], 
-                          c='b', s=20, alpha=0.5)
-                ax.scatter(mesh.points[feature_mask, 0], mesh.points[feature_mask, 1], 
-                          c='r', s=50)
+                # Draw non-feature points (blue in RGB = red in BGR)
+                for point in mesh.points[~feature_mask]:
+                    cv2.circle(frame_img, tuple(point.astype(int)), 3, (0, 255, 0), -1, cv2.LINE_AA)  # BGR: Blue
 
-                ax.set_xlim(0, width)
-                ax.set_ylim(height, 0)
+                # Draw feature points (red in RGB = blue in BGR)
+                for point in mesh.points[feature_mask]:
+                    cv2.circle(frame_img, tuple(point.astype(int)), 5, (0, 0, 255), -1, cv2.LINE_AA)  # BGR: Red
 
-                # Convert plot to image array
-                fig.canvas.draw()
-                buf = fig.canvas.buffer_rgba()
-                # Convert to numpy array and drop alpha channel
-                frame_img = np.asarray(buf)[..., :3]
-                frame_img = frame_img.astype(np.float32) / 255.0
+            # Convert BGR to RGB before returning
+            frame_img = frame_img[..., ::-1].copy()
+            # Convert to torch tensor [H,W,C]
+            frame_tensor = torch.from_numpy(frame_img)
+            frames.append(frame_tensor)
+            pbar.update(1)
 
-            frames.append(frame_img)
-
-        # Close the figure after all frames are done
-        if triangles:
-            plt.close(fig)
-        # Stack frames into a single array
-        return np.stack(frames)
+        return torch.stack(frames)  # Returns [B,H,W,C] with values 0-255 RGB
 
 
 # A dictionary that contains all nodes you want to export with their names
