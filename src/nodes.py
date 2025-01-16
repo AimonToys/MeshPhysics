@@ -162,7 +162,7 @@ class AnimateMesh:
                 image_frames = [image] * n_frames
             elif len(image.shape) == 4:  # Sequence of images
                 if image.shape[0] == 1:  # Batch 1 (1,H,W,C)
-                    image_frames = [image[i] for i in range(n_frames)]
+                    image_frames = [image[0]] * n_frames
                 elif image.shape[0] == n_frames:
                     image_frames = image
                 else:
