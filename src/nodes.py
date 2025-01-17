@@ -90,7 +90,7 @@ class SplitKJTrajectoriesLoop:
             json.dumps(tokj(coord_list[mid_point:] + coord_list[:overlap]))
             for coord_list in trajectories
         ]
-        return (first_half, len(first_half[0]), second_half, len(second_half[0]))
+        return (first_half, mid_point + overlap, second_half, len(trajectories[0]) - mid_point + overlap)
 
 
 class ARAPCircleMesh:
