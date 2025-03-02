@@ -36,8 +36,10 @@ class JoinTrajectories:
         return {
             "required": {
                 "trajectories_1": ("COORDINATES",),
-                "n_frames_1": ("INT", {"default": 0, "min": 0, "step": 1}),
                 "trajectories_2": ("COORDINATES",),
+            },
+            "optional": {
+                "n_frames_1": ("INT", {"default": 0, "min": 0, "step": 1}),
                 "n_frames_2": ("INT", {"default": 0, "min": 0, "step": 1}),
             },
         }
@@ -49,7 +51,7 @@ class JoinTrajectories:
 
     CATEGORY = "MeshPhysics/coordinates"
 
-    def join(self, trajectories_1, n_frames_1, trajectories_2, n_frames_2):
+    def join(self, trajectories_1, trajectories_2, n_frames_1=0, n_frames_2=0):
         assert len(trajectories_1) == len(trajectories_2), "Trajectories must have the same number of tracks"
         n1 = n_frames_1 or len(trajectories_1[0])
         n2 = n_frames_2 or len(trajectories_2[0])
