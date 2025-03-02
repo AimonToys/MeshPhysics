@@ -2,41 +2,11 @@ import json
 from typing import List, Optional
 
 import cv2
-import igl
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from scipy.spatial import Delaunay
 from comfy.utils import ProgressBar
 
-
-class ARAPMeshSystem:
-    def __init__(self, points, n_anchors):
-        self.points = np.array(points, dtype=np.float64)
-        self.initial = self.points.copy()
-        # Create triangulation for faces
-        self.faces = Delaunay(points).simplices.astype(np.int32)
-        # Get initial boundary points (will be updated in step)
-        self.b = np.array(range(n_anchors), dtype=np.int32)
-
-        # Initialize ARAP solver
-        self.arap_data = igl.ARAP(
-            v=self.initial,  # Initial vertex positions
-            f=self.faces,          # Face indices
-            dim=2,                 # 2D deformation
-            b=self.b,             # Boundary vertices
-            energy_type=3,        # ARAP_ENERGY_TYPE_SPOKES
-            max_iter=5,           # Max iterations for solver
-        )
-
-    def step(self, anchors):
-        # Update boundary conditions
-        bc = np.array(anchors)
-        # Use current positions as initial guess
-        initial_guess = self.points.copy()
-        # Solve for new positions
-        self.points = self.arap_data.solve(bc, initial_guess)
-        return self.points
+from .meshes import ARAPMeshSystem, HomographyMeshSystem
 
 
 class LoadTrajectories:
@@ -79,17 +49,12 @@ class SplitKJTrajectoriesLoop:
 
     def split(self, trajectories, overlap):
         mid_point = len(trajectories[0]) // 2
-        def tokj(coords):
-            return [{'x': c[0], 'y': c[1]} for c in coords]
 
-        first_half = [
-            json.dumps(tokj(coord_list[:mid_point + overlap]))
-            for coord_list in trajectories
-        ]
-        second_half = [
-            json.dumps(tokj(coord_list[mid_point:] + coord_list[:overlap]))
-            for coord_list in trajectories
-        ]
+        def tokj(coords):
+            return [{"x": c[0], "y": c[1]} for c in coords]
+
+        first_half = [json.dumps(tokj(coord_list[: mid_point + overlap])) for coord_list in trajectories]
+        second_half = [json.dumps(tokj(coord_list[mid_point:] + coord_list[:overlap])) for coord_list in trajectories]
         return (first_half, mid_point + overlap, second_half, len(trajectories[0]) - mid_point + overlap)
 
 
@@ -123,12 +88,44 @@ class ARAPCircleMesh:
         vertices = [coords[0] for coords in trajectories]
 
         for radius, n_points in zip(radii, points_per_ring):
-            for theta in np.linspace(0, 2*np.pi, n_points, endpoint=False):
+            for theta in np.linspace(0, 2 * np.pi, n_points, endpoint=False):
                 x = center_x + radius * np.cos(theta)
                 y = center_y + radius * np.sin(theta)
                 vertices.append([x, y])
 
         mesh = ARAPMeshSystem(vertices, len(trajectories))
+        return (mesh,)
+
+
+class HomographyRectangleMesh:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "width": ("INT", {"default": 512, "min": 32, "max": 4096, "step": 1}),
+                "height": ("INT", {"default": 512, "min": 32, "max": 4096, "step": 1}),
+            },
+            "optional": {
+                "trajectories": ("COORDINATES",),
+            },
+        }
+
+    RETURN_TYPES = ("MESH",)
+    RETURN_NAMES = ("mesh",)
+    DESCRIPTION = "Generate a simple grid mesh with linear interpolation."
+    FUNCTION = "generate"
+
+    CATEGORY = "MeshPhysics/simulation"
+
+    def generate(self, width, height, trajectories=None):
+        trajectories = trajectories or []
+        n_anchors = len(trajectories)
+
+        # Get initial positions of features + image corners
+        vertices = [coords[0] for coords in trajectories]
+        vertices.extend([(0, 0), (width, 0), (0, height), (width, height)])
+
+        mesh = HomographyMeshSystem(vertices, n_anchors)
         return (mesh,)
 
 
@@ -156,13 +153,13 @@ class AnimateMesh:
     CATEGORY = "MeshPhysics/simulation"
 
     def simulate(
-        self, 
-        mesh: ARAPMeshSystem,
-        trajectories: List[List[float]], 
-        width: int, 
-        height: int, 
+        self,
+        mesh: ARAPMeshSystem | HomographyMeshSystem,
+        trajectories: List[List[float]],
+        width: int,
+        height: int,
         image: Optional[torch.Tensor] = None,  # Expected [B,H,W,C] with values 0-255 RGB
-        triangles: bool = True
+        triangles: bool = True,
     ) -> torch.Tensor:  # Returns [B,H,W,C] with values 0-1 RGB
         n_frames = len(trajectories[0])
         frames = []
@@ -196,8 +193,7 @@ class AnimateMesh:
                     cv2.fillPoly(curr_mask, [dst_tri.astype(np.int32)], 1)
 
                     # Convert RGB tensor to BGR numpy for cv2
-                    warped_piece = cv2.warpAffine(image_frames[frame], warp_mat, (width, height), 
-                                                flags=cv2.INTER_LINEAR)
+                    warped_piece = cv2.warpAffine(image_frames[frame], warp_mat, (width, height), flags=cv2.INTER_LINEAR)
 
                     # Apply mask
                     valid_mask = curr_mask > 0
@@ -210,7 +206,7 @@ class AnimateMesh:
                     cv2.polylines(frame_img, [vertices], True, (0, 255, 0), 1, cv2.LINE_AA)
 
                 feature_mask = np.zeros(len(mesh.points), dtype=bool)
-                feature_mask[:len(trajectories)] = True
+                feature_mask[: len(trajectories)] = True
 
                 # Draw non-feature points (blue in RGB = red in BGR)
                 for point in mesh.points[~feature_mask]:
@@ -236,6 +232,7 @@ NODE_CLASS_MAPPINGS = {
     "LoadTrajectories": LoadTrajectories,
     "SplitKJTrajectoriesLoop": SplitKJTrajectoriesLoop,
     "ARAPCircleMesh": ARAPCircleMesh,
+    "HomographyRectangleMesh": HomographyRectangleMesh,
     "AnimateMesh": AnimateMesh,
 }
 
@@ -244,6 +241,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadTrajectories": "Load Trajectories",
     "SplitKJTrajectoriesLoop": "Split KJ Trajectories Loop",
     "ARAPCircleMesh": "ARAP Circle Mesh",
+    "HomographyRectangleMesh": "Homography Rectangle Mesh",
     "AnimateMesh": "Animate Mesh",
 }
-
