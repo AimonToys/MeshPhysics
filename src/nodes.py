@@ -30,6 +30,37 @@ class LoadTrajectories:
         return (list_of_lists, len(list_of_lists), len(list_of_lists[0]))
 
 
+class JoinTrajectories:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "trajectories_1": ("COORDINATES",),
+                "n_frames_1": ("INT", {"default": 0, "min": 0, "step": 1}),
+                "trajectories_2": ("COORDINATES",),
+                "n_frames_2": ("INT", {"default": 0, "min": 0, "step": 1}),
+            },
+        }
+
+    RETURN_TYPES = ("COORDINATES",)
+    RETURN_NAMES = ("trajectories",)
+    DESCRIPTION = "Crop and join trajectories."
+    FUNCTION = "join"
+
+    CATEGORY = "MeshPhysics/coordinates"
+
+    def join(self, trajectories_1, n_frames_1, trajectories_2, n_frames_2):
+        assert len(trajectories_1) == len(trajectories_2), "Trajectories must have the same number of tracks"
+        n1 = n_frames_1 or len(trajectories_1[0])
+        n2 = n_frames_2 or len(trajectories_2[0])
+
+        coordinates = []
+        for track1, track2 in zip(trajectories_1, trajectories_2):
+            coordinates.append(track1[:n1] + track2[n2:])
+
+        return (coordinates,)
+
+
 class SplitKJTrajectoriesLoop:
     @classmethod
     def INPUT_TYPES(s):
@@ -230,6 +261,7 @@ class AnimateMesh:
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
     "LoadTrajectories": LoadTrajectories,
+    "JoinTrajectories": JoinTrajectories,
     "SplitKJTrajectoriesLoop": SplitKJTrajectoriesLoop,
     "ARAPCircleMesh": ARAPCircleMesh,
     "HomographyRectangleMesh": HomographyRectangleMesh,
@@ -239,6 +271,7 @@ NODE_CLASS_MAPPINGS = {
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadTrajectories": "Load Trajectories",
+    "JoinTrajectories": "Join Trajectories",
     "SplitKJTrajectoriesLoop": "Split KJ Trajectories Loop",
     "ARAPCircleMesh": "ARAP Circle Mesh",
     "HomographyRectangleMesh": "Homography Rectangle Mesh",
