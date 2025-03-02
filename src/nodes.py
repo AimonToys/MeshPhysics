@@ -58,7 +58,7 @@ class JoinTrajectories:
 
         coordinates = []
         for track1, track2 in zip(trajectories_1, trajectories_2):
-            coordinates.append(track1[:n1] + track2[n2:])
+            coordinates.append(track1[:n1] + track2[:n2])
 
         return (coordinates,)
 
